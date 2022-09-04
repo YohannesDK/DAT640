@@ -1,0 +1,7 @@
+name: DAT640
+channels:
+  - defaults
+dependencies:
+  - python[version='>=3.7']
+  - pytest
+prefix: /Users/yohannesdawitkassaye/opt/anaconda3/envs/DAT640
