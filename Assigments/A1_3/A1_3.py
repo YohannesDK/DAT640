@@ -3,6 +3,12 @@ import string
 
 from numpy import ndarray
 
+from nltk.corpus import stopwords
+
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
+
 
 def load_data(path: str) -> Tuple[List[str], List[int]]:
     """Loads data from file. Each except first (header) is a datapoint
@@ -17,7 +23,7 @@ def load_data(path: str) -> Tuple[List[str], List[int]]:
     """
     email_contents = []
     email_labels = []
-    with open(path, "r") as f:
+    with open(path, "r", encoding="utf8") as f:
         data = f.readlines()
         
         if len(data) < 1:
@@ -40,9 +46,18 @@ def preprocess(doc: str) -> str:
         String comprising the corresponding preprocessed text.
     """
 
+    doc = doc.lower()
     # punctuation removal 
     for c in string.punctuation:
         doc = doc.replace(c, "")
+
+    # #stopword removal - assumes that punkt and stopwords are downloaded
+    stop_words = stopwords.words("english")
+    words = doc.split()
+    doc_stopworded = [word for word in words if word not in stop_words]
+    doc = " ".join(doc_stopworded)
+    return doc
+
     
 
 
@@ -57,8 +72,7 @@ def preprocess_multiple(docs: List[str]) -> List[str]:
         List of strings, each comprising the corresponding preprocessed
             text.
     """
-    # TODO
-    return []
+    return [preprocess(doc) for doc in docs]
 
 
 def extract_features(
@@ -76,8 +90,19 @@ def extract_features(
         A tuple of of two lists. The lists contain extracted features for 
           training and testing dataset respectively.
     """
-    # TODO
-    ...
+
+    # create the transform
+    vectorizor = CountVectorizer()
+
+    # build vocabulary
+    train_features = vectorizor.fit_transform(train_dataset)
+
+    # encode document
+    test_features = vectorizor.transform(test_dataset)
+
+    # return features
+    return train_features, test_features
+
 
 
 def train(X: ndarray, y: List[int]) -> object:
@@ -91,8 +116,9 @@ def train(X: ndarray, y: List[int]) -> object:
         A trained model object capable of predicting over unseen sets of
             instances.
     """
-    # TODO
-    return None
+    model = LogisticRegression(max_iter=1000)
+    model.fit(X, y)
+    return model
 
 
 def evaluate(y: List[int], y_pred: List[int]) -> Tuple[float, float, float, float]:
@@ -107,8 +133,9 @@ def evaluate(y: List[int], y_pred: List[int]) -> Tuple[float, float, float, floa
     Returns:
         A tuple of four values: recall, precision, F_1, and accuracy.
     """
-    # TODO
-    return 0, 0, 0, 0
+    recall, precision, f1, accuracy  = recall_score(y, y_pred), precision_score(y, y_pred), \
+        f1_score(y, y_pred), accuracy_score(y, y_pred)
+    return recall, precision, f1, accuracy
 
 
 if __name__ == "__main__":
