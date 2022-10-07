@@ -7,7 +7,7 @@ import A2_1 as module
 def index():
     module.download_dataset("WashingtonPost.v2.tar.gz")
     module.index_collection(
-        filename="inverted_index.sqlite", num_documents=1000
+        filename="inverted_index.sqlite", num_documents=50000
     )
 
     with module.InvertedIndex("inverted_index.sqlite") as invindex:

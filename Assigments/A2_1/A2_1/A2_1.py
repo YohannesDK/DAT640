@@ -1,4 +1,5 @@
 from cgi import print_form
+from dataclasses import dataclass
 import os
 import re
 from typing import Any, List
@@ -48,7 +49,6 @@ def preprocess(doc: str) -> List[str]:
         if term not in STOPWORDS
     ]
 
-
 class InvertedIndex(SqliteDict):
     def __init__(
         self,
@@ -60,8 +60,6 @@ class InvertedIndex(SqliteDict):
         self.fields = fields
         self.index = {} if new else self
 
-    # TODO
-
     def get_postings(self, field: str, term: str) -> List[Any]:
         """Fetches the posting list for a given field and term.
 
@@ -72,12 +70,14 @@ class InvertedIndex(SqliteDict):
         Returns:
             List of postings for the given term in the given field.
         """
-        # TODO
-        posting = []
-        for doc_id, doc in self.index.items():
-            if doc_id in doc[field]:
-                posting.append((doc_id, doc[field][term]))
-        return posting
+        postings = []
+
+        if term not in self.index[field]:
+            print("Term not found.")
+            return postings
+        for doc_id in self.index[field][term]:
+            postings.append((doc_id, self.index[field][term][doc_id]))
+        return postings
 
 
     def get_term_frequency(self, field: str, term: str, doc_id: str) -> int:
@@ -91,11 +91,13 @@ class InvertedIndex(SqliteDict):
         Returns:
             Term count in a document.
         """
-        term_frequency = 0
-        for posting in self.get_postings(field, term):
+        postings = self.get_postings(field, term)
+        if len(postings) == 0:
+            return 0
+        for posting in postings:
             if posting[0] == doc_id:
-                term_frequency = posting[1]
-        return term_frequency
+                return posting[1]
+        return 0
 
     def get_terms(self, field: str) -> List[str]:
         """Returns all unique terms in the index.
@@ -106,10 +108,7 @@ class InvertedIndex(SqliteDict):
         Returns:
             Set of all terms in a given field.
         """
-        terms = set()
-        for doc in self.index.values():
-            terms.update(doc[field].keys())
-        return list(terms)
+        return list(self.index[field].keys())
 
     def __exit__(self, *exc_info):
         if self.flag == "n":
@@ -146,26 +145,32 @@ def index_collection(
             if i == num_documents:
                 break
 
-            # TODO
-            # get fields in doc
+            try:
+                for field in index.fields:
+                    field_index = 2 if field == "title" else 6 # namedtuple index from ir_datasets-documentation
+                    doc_data = doc[field_index]
 
+                    if doc_data is None: # data might be none
+                        continue
 
-            print(i, len(index.fields))
-            for field in index.fields:
-                for term in preprocess(doc[field]):
-                    if doc.doc_id not in index.index:
-                        index.index[doc.doc_id] = {field: {}}
+                    if field not in index.index:
+                        index.index[field] = {}
 
-                    if field not in index.index[doc.doc_id]:
-                        index.index[doc.doc_id][field] = {}
-
-                    if term not in index.index[doc.doc_id][field]:
-                        index.index[doc.doc_id][field][term] = 0
-                    index.index[doc.doc_id][field][term] += 1
-
+                    for term in preprocess(doc_data):
+                        document_id = str(doc.doc_id) 
+                        if term not in index.index[field]:
+                            index.index[field][term] = {document_id : 1}
+                            continue
+                        if document_id not in index.index[field][term]:
+                            index.index[field][term][document_id] = 1
+                            continue
+                        index.index[field][term][document_id] += 1
+            except Exception as e:
+                print(f"Error indexing document {doc.doc_id}: {e}")
+                print(f"Document: {type(doc.doc_id)}, Term: {type(term)}, Field: {type(field)}")
 
 if __name__ == "__main__":
-    # download_dataset("WashingtonPost.v2.tar.gz")
+    download_dataset("WashingtonPost.v2.tar.gz")
     collection = "wapo/v2/trec-core-2018"
     index_file = "inverted_index.sqlite"
 
@@ -175,13 +180,9 @@ if __name__ == "__main__":
         # Consider using a smaller subset while developing the index because
         # indexing the entire collection might take a considerable amount of
         # time.
-        print("Before indexing collection...")
         index_collection(collection, index_file, 1000)
-        print("After indexing collection...")
 
     index = InvertedIndex(index_file)
     print(len(index.get_postings("body", "norway")))
-    print(
-        index.get_term_frequency("body", "norway", "ebff82c9cd96407d2ef1ba620313f011")
-    )
+    print( index.get_term_frequency("body", "norway", "ebff82c9cd96407d2ef1ba620313f011"))
     index.close()
