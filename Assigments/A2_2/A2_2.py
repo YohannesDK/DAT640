@@ -136,15 +136,13 @@ class ScorerLM(Scorer):
         self.smoothing_param = smoothing_param
 
     def score_term(self, term: str, query_freq: int) -> None:
-        # TODO - fix later
         c_t_q = query_freq
         lambda_ = self.smoothing_param
         P_t_C = sum([doc[self.field].count(term) for doc in self.collection.values()]) / self.collection.total_field_length(self.field)
 
         for doc_id, doc in self.collection.items():
-            if term in doc[self.field]:
-                c_t_d = doc[self.field].count(term)
-                self.scores[doc_id] += c_t_q * math.log((1 - lambda_) * (c_t_d / len(doc[self.field])) + (lambda_ * P_t_C))
+            c_t_d = doc[self.field].count(term)
+            self.scores[doc_id] += c_t_q * math.log((1 - lambda_) * c_t_d / len(doc[self.field]) + lambda_ * P_t_C)
 
 class ScorerBM25F(Scorer):
     def __init__(
